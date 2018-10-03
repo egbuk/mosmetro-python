@@ -77,7 +77,13 @@ class MosMetroV2(Provider):
 
 	def connect(self):
 		logging.info("Parsing initial redirect")
-		redirect = urlparse(self.response.headers.get("Location"))
+		location = self.response.headers.get("Location")
+
+		# TODO: Incorrect meta refresh value
+		if "ru?segment" in location:
+			location = location.replace("ru?", "ru/?").replace(': ', '')
+
+		redirect = urlparse(location)
 
 		logging.debug('Redirect: ' + str(redirect))
 
@@ -94,7 +100,8 @@ class MosMetroV2(Provider):
 			return False
 
 		logging.info("Following initial redirect")
-		r = self.session.get(redirect.geturl(), allow_redirects=False)
+		# TODO: SSL check fails on mcc
+		r = self.session.get(redirect.geturl(), allow_redirects=False, verify=False)
 		logging.debug('R: '+str(r))
 
 		if r.status_code in (301, 302) and "auto_auth" in r.headers.get("Location"):
