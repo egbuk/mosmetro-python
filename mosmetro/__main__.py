@@ -6,10 +6,13 @@ import inspect
 import sys
 import requests
 import urllib3
+import logging
 from abc import abstractmethod
 from datetime import datetime
 from pyquery import PyQuery
 from urllib.parse import urlparse, urljoin, parse_qs
+
+logging.basicConfig(level=logging.DEBUG, stream=sys.stdout, format='%(asctime)s - %(message)s')
 
 urllib3.disable_warnings()
 
@@ -34,10 +37,12 @@ class Provider(object):
 	@staticmethod
 	def generate_204(session):
 		r = session.get("http://google.com/generate_204", allow_redirects=False)
+		logging.debug('R: '+str(r))
 		if r.status_code != 204:
 			return r
 
 		r = session.get("https://google.com/generate_204", allow_redirects=False, verify=False)
+		logging.debug('R: ' + str(r))
 		if r.status_code != 204:
 			return r
 
@@ -48,15 +53,15 @@ class Provider(object):
 		r = Provider.generate_204(session)
 
 		if r is True:
-			print("Already connected")
+			logging.info("Already connected")
 			return True
 
 		for provider in Provider.__subclasses__():
 			if provider.match(r):
-				print("Detected provider: " + provider.__name__)
+				logging.info("Detected provider: " + provider.__name__)
 				return provider(session, r)
 
-		print("Wrong network")
+		logging.info("Wrong network")
 		return False
 
 	@staticmethod
@@ -71,40 +76,48 @@ class MosMetroV2(Provider):
 		self.response = response
 
 	def connect(self):
-		print("Parsing initial redirect")
+		logging.info("Parsing initial redirect")
 		redirect = urlparse(self.response.headers.get("Location"))
+
+		logging.debug('Redirect: ' + str(redirect))
 
 		if "segment" in redirect.query:
 			segment = parse_qs(redirect.query)["segment"][0]
 		else:
 			segment = "metro"
 
+		logging.debug('Segment: '+str(segment))
+
 		# Check if device is not registered
 		if "identification" in redirect.path:
-			print("Registration is required. Please go to " + redirect.geturl())
+			logging.info("Registration is required. Please go to " + redirect.geturl())
 			return False
 
-		print("Following initial redirect")
+		logging.info("Following initial redirect")
 		r = self.session.get(redirect.geturl(), allow_redirects=False)
+		logging.debug('R: '+str(r))
 
 		if r.status_code in (301, 302) and "auto_auth" in r.headers.get("Location"):
-			print("You probably have been temporary banned.")
+			logging.info("You probably have been temporary banned.")
 			return False
 
-		print("Following JavaScript redirect")
+		logging.info("Following JavaScript redirect")
 		r = self.session.get(urljoin(redirect.geturl(), "/auth?segment=" + segment))
+		logging.debug('R: ' + str(r))
 
 		# Parsing CSRF token
 		csrf = PyQuery(r.content)("meta[name=csrf-token]").attr("content")
+		logging.debug('CSRF: '+str(csrf))
 		self.session.headers["X-CSRF-Token"] = csrf
 
 		# Setting additional Cookies (probably required)
 		self.session.cookies.set("afVideoPassed", "0")
 
-		print("Sending auth request")
-		self.session.post(urljoin(redirect.geturl(), "/auth/init?mode=0&segment=" + segment))
+		logging.info("Sending auth request")
+		r = self.session.post(urljoin(redirect.geturl(), "/auth/init?mode=0&segment=" + segment))
+		logging.debug('R: '+str(r))
 
-		print("Checking internet connection")
+		logging.info("Checking internet connection")
 		return Provider.generate_204(self.session) is True
 
 	@staticmethod
@@ -114,7 +127,7 @@ class MosMetroV2(Provider):
 
 
 def main():
-	print(datetime.now())
+	logging.info(datetime.now())
 
 	with requests.Session() as session:
 		if UserAgent:
@@ -122,7 +135,7 @@ def main():
 				path=ROOT + "/res/user-agent.json"
 			).random
 		else:
-			print("Random User-Agent disabled. Please install 'fake-useragent'.")
+			logging.info("Random User-Agent disabled. Please install 'fake-useragent'.")
 
 		p = Provider.find(session)
 
@@ -130,10 +143,10 @@ def main():
 			sys.exit(p)
 
 		if p.connect():
-			print("Connected successfully! :3")
+			logging.info("Connected successfully! :3")
 			sys.exit(0)
 		else:
-			print("Connection failed :(")
+			logging.info("Connection failed :(")
 			sys.exit(1)
 
 
