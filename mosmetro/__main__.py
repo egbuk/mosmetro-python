@@ -76,6 +76,13 @@ class MosMetroV2(Provider):
 		self.response = response
 
 	def connect(self):
+		r1 = self.session.get('http://wi-fi.ru', allow_redirects=False, verify=False)
+		logging.debug('R1: ' + str(r1))
+		logging.debug('Location: '+str(r1.headers.get("Location")))
+
+		r2 = self.session.get(r1.headers.get("Location"), allow_redirects=False, verify=False)  # todo: write better code
+		logging.debug('R2: ' + str(r2))
+
 		logging.info("Parsing initial redirect")
 		location = self.response.headers.get("Location")
 
