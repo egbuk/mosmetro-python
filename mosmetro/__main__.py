@@ -11,7 +11,7 @@ from abc import abstractmethod
 from datetime import datetime
 from pyquery import PyQuery
 from urllib.parse import urlparse, urljoin, parse_qs
-from bs4 import BeautifulSoup
+from time import sleep
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout, format='%(asctime)s - %(message)s')
 
@@ -84,8 +84,7 @@ class MosMetroV2(Provider):
 
 			r2 = self.session.get(r1.headers.get("Location"), allow_redirects=False, verify=False)  # todo: write better code
 			logging.debug('R2: ' + str(r2))
-			soup = BeautifulSoup(str(r2.text), 'html.parser')
-			token = soup.find('meta', {'name': 'csrf-token'}).get('content')
+			token = PyQuery(r2.content)("meta[name=csrf-token]").attr("content")
 			logging.debug(token)
 			mac = r1.headers.get("Location")[36:]
 			logging.debug(mac)
@@ -99,6 +98,9 @@ class MosMetroV2(Provider):
 			logging.debug('R3 Text: '+str(r3.text))
 		except AttributeError:
 			logging.debug('Parsing error')
+
+		logging.debug('Waiting for 5 secs')
+		sleep(5)
 
 		logging.info("Parsing initial redirect")
 		location = self.response.headers.get("Location")
