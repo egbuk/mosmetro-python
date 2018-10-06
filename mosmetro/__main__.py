@@ -11,6 +11,7 @@ from abc import abstractmethod
 from datetime import datetime
 from pyquery import PyQuery
 from urllib.parse import urlparse, urljoin, parse_qs
+from bs4 import BeautifulSoup
 
 logging.basicConfig(level=logging.DEBUG, stream=sys.stdout, format='%(asctime)s - %(message)s')
 
@@ -76,12 +77,28 @@ class MosMetroV2(Provider):
 		self.response = response
 
 	def connect(self):
-		r1 = self.session.get('http://wi-fi.ru', allow_redirects=False, verify=False)
-		logging.debug('R1: ' + str(r1))
-		logging.debug('Location: '+str(r1.headers.get("Location")))
+		try:
+			r1 = self.session.get('http://wi-fi.ru', allow_redirects=False, verify=False)
+			logging.debug('R1: ' + str(r1))
+			logging.debug('Location: '+str(r1.headers.get("Location")))
 
-		r2 = self.session.get(r1.headers.get("Location"), allow_redirects=False, verify=False)  # todo: write better code
-		logging.debug('R2: ' + str(r2))
+			r2 = self.session.get(r1.headers.get("Location"), allow_redirects=False, verify=False)  # todo: write better code
+			logging.debug('R2: ' + str(r2))
+			soup = BeautifulSoup(str(r2.text), 'html.parser')
+			token = soup.find('meta', {'name': 'csrf-token'}).get('content')
+			logging.debug(token)
+			mac = r1.headers.get("Location")[36:]
+			logging.debug(mac)
+			r3 = self.session.post('http://welcome.wi-fi.ru/auth/init', json={
+				'authenticity_token': token,
+				'client_mac': mac,
+				"client_ip": ''
+				}
+			)
+			logging.debug('R3: '+str(r3))
+			logging.debug('R3 Text: '+str(r3.text))
+		except AttributeError:
+			logging.debug('Parsing error')
 
 		logging.info("Parsing initial redirect")
 		location = self.response.headers.get("Location")

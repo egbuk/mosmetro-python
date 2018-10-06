@@ -10,7 +10,7 @@ setup(name='mosmetro',
       license='GNU GPLv3',
       url='https://github.com/mosmetro-android/mosmetro-python',
 
-      install_requires=['requests', 'pyquery', 'fake_useragent==0.1.7', 'urllib3'],
+      install_requires=['requests', 'pyquery', 'fake_useragent==0.1.7', 'urllib3', 'bs4'],
 
       packages=find_packages(),
       package_data={'mosmetro': ['res/*']},
